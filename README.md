@@ -131,7 +131,7 @@ The warehouse world is loaded by default.
   If the simulation is not started immediately with the -r flag, this can cause issues when spawning the robot. This issue has been resolved with a merged PR: 
 
 - Gazebo crashing on launch
-  Error: Segmentation fault (Address not mapped to object [0x8])
+  Error: "Segmentation fault (Address not mapped to object [0x8])"
   ```
   export QT_QPA_PLATFORM=xcb
   ```
@@ -139,7 +139,7 @@ The warehouse world is loaded by default.
 
 ### Qualisys tracking system
 
-Integration of qualisys makes use of the `mocap4ros2_qualisys` package. The original repository has been forked to enable access to the subject labels (rigid body names) assigned in the software. Instructions for installation can be followed as per the original repository, repeated here for convenience:
+Integration of qualisys makes use of the `mocap4ros2_qualisys` package. The original repository has been forked to enable access to the subject labels (rigid body names) assigned in the qualisys tracking software. Instructions for installation can be followed as per the original repository, repeated here for convenience:
 
 Recursively clone the repository:
 ```
@@ -169,8 +169,7 @@ This publishes robot positional data to a `/rigid_bodies` topic.
 
 #### Known issues:
 
-- Errors: `mocap/mocap4r2_control/rqt_mocap4r2_control/include/rqt_mocap4r2_control/SystemController.hpp:0: Note: No relevant classes found. No output generated.`
-  `ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents = true, int nTimeout = cWaitForDataTimeout); // nTimeout < 0 : Blocking receive`
+- Errors: "mocap/mocap4r2_control/rqt_mocap4r2_control/include/rqt_mocap4r2_control/SystemController.hpp:0: Note: No relevant classes found. No output generated." or "ReceiveRTPacket(CRTPacket::EPacketType &eType, bool bSkipEvents = true, int nTimeout = cWaitForDataTimeout); // nTimeout < 0 : Blocking receive"  
   On second compile, these errors seem to resolve themselves.
   
 
