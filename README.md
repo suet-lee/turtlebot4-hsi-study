@@ -111,7 +111,6 @@ To start the simulation with one spawned robot:
 ```
 ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py
 ```
-To 
 The warehouse world is loaded by default.
 
 #### Known issues:
