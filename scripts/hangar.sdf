@@ -1,0 +1,176 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+    <world name="hangar">
+
+    <physics type="ode">
+      <max_step_size>0.003</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin name='gz::sim::systems::Physics' filename='libgz-sim-physics-system.so'/>
+    <plugin name='gz::sim::systems::UserCommands' filename='libgz-sim-user-commands-system.so'/>
+    <plugin name='gz::sim::systems::SceneBroadcaster' filename='libgz-sim-scene-broadcaster-system.so'/>
+    
+      <plugin filename="libgz-sim-contact-system.so" name="gz::sim::systems::Contact"></plugin>
+
+      <plugin filename="libgz-sim-sensors-system.so" name="gz::sim::systems::Sensors">
+        <render_engine>ogre</render_engine>
+      </plugin>
+
+
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>0.3 0.7 0.9 1</background>
+      <shadows>0</shadows>
+      <grid>false</grid>
+    </scene>
+
+
+        <!-- Add a ground plane -->
+        <model name="ground_plane">
+            <static>true</static>
+            <pose>0 0 0 0 0 0</pose>
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>15 15</size>
+                        </plane>
+                    </geometry>
+                    <surface>
+                        <friction>
+                            <ode/>
+                        </friction>
+                    </surface>
+                </collision>
+                <visual name="visual">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>15 15</size>
+                        </plane>
+                    </geometry>
+                    <material>
+                        <ambient>0 1 0 1</ambient> <!-- Green color -->
+                        <diffuse>0 1 0 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 0</emissive>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Walls -->
+        <!-- Define four walls with white color around the square -->
+        <!-- Adjust the positions and sizes to match the 15x15m square -->
+        <!-- Example for one wall, replicate and adjust for all four -->
+        <model name="wall_1">
+            <static>true</static>
+            <pose>0 7.5 1.5 0 0 0</pose> <!-- Adjust position accordingly -->
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>15 0.2 3</size> <!-- Length, Width, Height -->
+                        </box>
+                    </geometry>
+                </collision>
+                <visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>15 0.2 3</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>1 1 1 1</ambient> <!-- White color -->
+                        <diffuse>1 1 1 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 0</emissive>
+                    </material>
+                </visual>
+            </link>
+        </model>
+        
+        <model name="wall_2">
+            <static>true</static>
+            <pose>0 -7.5 1.5 0 0 0</pose> <!-- Adjust position accordingly -->
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>15 0.2 3</size> <!-- Length, Width, Height -->
+                        </box>
+                    </geometry>
+                </collision>
+                <visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>15 0.2 3</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>1 1 1 1</ambient> <!-- White color -->
+                        <diffuse>1 1 1 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 0</emissive>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <model name="wall_3">
+            <static>true</static>
+            <pose>7.5 0 1.5 0 0 0</pose> <!-- Adjust position accordingly -->
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>0.2 15 3</size> <!-- Length, Width, Height -->
+                        </box>
+                    </geometry>
+                </collision>
+                <visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>0.2 15 3</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>1 1 1 1</ambient> <!-- White color -->
+                        <diffuse>1 1 1 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 0</emissive>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <model name="wall_4">
+            <static>true</static>
+            <pose>-7.5 0 1.5 0 0 0</pose> <!-- Adjust position accordingly -->
+            <link name="link">
+                <collision name="collision">
+                    <geometry>
+                        <box>
+                            <size>0.2 15 3</size> <!-- Length, Width, Height -->
+                        </box>
+                    </geometry>
+                </collision>
+                <visual name="visual">
+                    <geometry>
+                        <box>
+                            <size>0.2 15 3</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>1 1 1 1</ambient> <!-- White color -->
+                        <diffuse>1 1 1 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 0</emissive>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+    </world>
+</sdf>

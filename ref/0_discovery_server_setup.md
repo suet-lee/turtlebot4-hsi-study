@@ -1,0 +1,2 @@
+# Discovery server setup
+

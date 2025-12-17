@@ -1,0 +1,9 @@
+teams:
+  team0:
+    - turtlebot4_2
+  team1:
+    - turtlebot4_3
+
+leaders:
+  team0: turtlebot4_0
+  team1: turtlebot4_1
