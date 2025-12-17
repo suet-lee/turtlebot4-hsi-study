@@ -155,7 +155,7 @@ Compile workspace and source:
 cd ~/hsi_ws && colcon build --symlink-install
 source install/setup.bash
 ```
-Setup qualisys configuration:
+Set up qualisys configuration:
 ```
 src/mocap4ros2_qualisys/qualisys_driver/config/qualisys_driver_params.yaml
 ```
