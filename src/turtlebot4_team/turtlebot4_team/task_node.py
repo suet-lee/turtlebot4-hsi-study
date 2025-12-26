@@ -158,7 +158,7 @@ class TaskManager(Node):
             msg.progress = self.task_progress[zone]
             self.zone_publisher[zone].publish(msg)
 
-        max_requirement = 7
+        max_requirement = 6
         while active_zones < self.max_active_zones:
             # Randomly assign new active zone
             zones = list(self.zone_status.keys())
@@ -167,7 +167,7 @@ class TaskManager(Node):
                 continue
 
             self.zone_status[new_active] = self.ZONE_ACTIVE
-            new_requirement = random.randrange(3, max_requirement+1) # can also create a list of possible requirements e.g. [3,3,3,7]
+            new_requirement = random.randrange(4, max_requirement+1) # can also create a list of possible requirements e.g. [3,3,3,7]
             if new_requirement == max_requirement:
                 max_requirement = 5
             self.task_requirement[new_active] = new_requirement

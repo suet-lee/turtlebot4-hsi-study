@@ -99,7 +99,7 @@ class RobotFlocking(Node):
         self.leader_exponent = 1
 
         self.follower_sigma = 1.1
-        self.follower_epsilon = 0.1#0.5
+        self.follower_epsilon = 0.5
         self.follower_exponent = 2
 
         self.flock_distance_threshold = 1.0
@@ -333,6 +333,7 @@ class RobotFlocking(Node):
         # angle difference between leader and robot
         leader_align_angle = math.atan2(math.sin(leader_yaw - robot_yaw), math.cos(leader_yaw - robot_yaw))
         
+        old_state = self.state
         if total_force > self.min_force:
             # Flock with leader
             if v_total_force[0] < 0:
@@ -356,8 +357,8 @@ class RobotFlocking(Node):
             twist.twist.linear.x = 0.0
             twist.twist.angular.z = 0.0
 
-
-        print(self.state, 'total_force:', total_force, 'angle:', total_force_angle)
+        if old_state != self.state:
+            print(self.state, 'total_force:', total_force, 'angle:', total_force_angle)
 
 
 

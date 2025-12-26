@@ -16,7 +16,7 @@ This repository can be integrated with real-world tracking systems and gazebo si
 
 2. Simulation/Motion capture: In the case of simulation, robot positional data is published via a ROS bridge. The central PC subscribes to the specified topics. In the case of Qualisys motion capture, the motion tracking software runs on a dedicated PC and positional data is continuously streamed to a specified port. The central PC uses a qualisys driver (mocap4ros2 package) to access the streamed data via ROS topic `/rigidbodies`.
 
-3. Turtlebot4: The robots should be setup with ROS jazzy. They are connected to the central PC via a discovery server (see section: Discovery server).
+3. Turtlebot4: The robots should be set up with ROS jazzy. They are connected to the central PC via a discovery server [notes on the discovery server setup](https://github.com/suet-lee/turtlebot4-hsi-study/ref/0_discovery_server_setup.md).
 
 4. GUI interface: This is set up as a static website which subscribes and publishes to ROS nodes running on the central PC with websockets using `roslibjs`.
 
@@ -182,7 +182,7 @@ Instructions for setup can be found here: https://github.com/CPS-Konstanz/turtle
 
 The GUI interface is implemented as a static website, served on a specified port using a web server. The following instructions are for usage with the web server nginx. There are two website GUIs available in this repository in folder `www`: `robot_share_gui` and `robot_sync_gui`.
 
-#### Setup website:
+#### Set up website:
 
 Put website files in directory, e.g. `robot_share_gui`:
 ```
@@ -268,7 +268,7 @@ The websocket is opened at localhost:9090 by default. To allow other clients on 
 ```
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:=0.0.0.0
 ```
-The websocket is now open at {your_machine_ip}:9090. It is also possible to specify the port using the port:={port_number}.
+The websocket is now open at {your_machine_ip}:9090. It is also possible to specify the port using the argument port:={port_number}.
 
 If a firewall is enabled, tcp connections via the websocket port needs to be allowed:
 ```
@@ -282,7 +282,7 @@ See https://wiki.ros.org/roslibjs/Tutorials/BasicRosFunctionality for an example
 
 ## Run pipeline for qualisys tracking
 
-This pipeline assumes that the turtlebots are set up with the correct discovery server settings and ROS_DOMAIN_ID=0. See https://github.com/suet-lee/turtlebot4-hsi-study/ref/0_discovery_server_setup.md for more details.
+This pipeline assumes that the turtlebots are set up with the correct discovery server settings and ROS_DOMAIN_ID=0. See [notes on the discovery server setup](https://github.com/suet-lee/turtlebot4-hsi-study/ref/0_discovery_server_setup.md) for more details.
 
 1. In terminal 1: Start fastdds discovery server
   ```
@@ -315,7 +315,7 @@ This pipeline assumes that the turtlebots are set up with the correct discovery 
   ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:=0.0.0.0
   ```
 
-5. In terminals 5+n: Start Turtlebot4 control nodes for n+1 robots
+5. In terminals 5+n: Start Turtlebot4 control nodes for n+1 robots  
   For each turtlebot:
   ```
   source ~/hsi_ws/src/turtlebot4_hsi_study/scripts/setup-ros2-discovery.sh tb {turtlebot4_ip}
