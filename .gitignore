@@ -1,2 +1,2 @@
-wwww/robot_share_2d/
-**/**/*.pyc
+wwww/robot_share_2d
+src/**/__pycache__
