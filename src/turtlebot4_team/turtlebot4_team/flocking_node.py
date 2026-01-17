@@ -41,11 +41,12 @@ class RobotFlocking(Node):
             for robot in team_list:
                 robot_list[robot] = int(team_[-1]) # Assume team IDs < 10 (single char)
 
+        #TODO rename vars from 'follower_' to something more general
         self.follower_positions = {}
         self.follower_orientations = {}
         self.follower_team = {}
-
-        # Subscribe to info of teammates - positions used to compute avoidance force
+        
+        # Subscribe to info of all robots
         for namespace, team_id in robot_list.items():
             follower_namespace = f'/{namespace}'
             if follower_namespace != self.namespace:
@@ -146,7 +147,7 @@ class RobotFlocking(Node):
             A callback function that updates the internal state with the follower's team info.
         """
         def follower_team_callback(msg):
-            self.follower_team[namespace] = msg.data # use this information to determine which robots to account for in flocking computation
+            self.follower_team[namespace] = msg.data
 
         return follower_team_callback
 
@@ -176,7 +177,7 @@ class RobotFlocking(Node):
         def leader_info_callback(msg):
             if leader_id != self.robot_team_id:
                 return
-
+            
             self.leader_position = np.array([msg.x, msg.y])
             self.leader_orientation = np.array([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
             self.calculate_forces()
@@ -271,15 +272,15 @@ class RobotFlocking(Node):
         # Preparations for force calculation and twist message
         twist = TwistStamped()
         distance_to_leader, angle_to_leader = self.calculate_distance_and_angle(self.leader_position)
-
+        
         # Initialize vectors and calculate force towards the leader
         v_to_leader = np.zeros(2)
         total_v_to_followers = np.zeros(2)
-
+        
         # Force calculation for the leader
         if distance_to_leader > 0:  # Avoid division by zero
             v_to_leader = self.calculate_vector(distance_to_leader, angle_to_leader)
-
+            
             if distance_to_leader < self.flock_distance_threshold:
 
                 # If leader is close, use Lennard-Jones potential for attraction and repulsion
@@ -292,12 +293,11 @@ class RobotFlocking(Node):
                 # v_to_leader = v_to_leader # (could be removed)
 
         # Force calculation for each follower
-        for namespace, team_id in self.follower_team.items():
+        for namespace, pos in self.follower_positions.items():
             # Check if follower belongs to the same team #TODO maybe this check not needed
             # if team_id != self.robot_team_id:
             #     continue
 
-            pos = self.follower_positions[namespace]
             distance_follower, angle_to_follower = self.calculate_distance_and_angle(pos)
             if distance_follower > 0:  # Avoid division by zero
                 # Use Lennard-Jones potential for attraction and repulsion
@@ -306,7 +306,7 @@ class RobotFlocking(Node):
                 ljf_follower = self.lennard_jones_potential(distance_follower, epsilon=self.follower_epsilon, sigma=self.follower_sigma, exponent=self.follower_exponent)
                 v_to_follower = self.get_unit_vector(v_to_follower) * ljf_follower
                 total_v_to_followers += v_to_follower
-
+        
         # for pos in self.follower_positions.values():
         #     distance_follower, angle_to_follower = self.calculate_distance_and_angle(pos)
         #     if distance_follower > 0:  # Avoid division by zero
@@ -321,15 +321,13 @@ class RobotFlocking(Node):
         v_total_force = v_to_leader + total_v_to_followers
         # v_total_force = -v_total_force  # Invert the force vector to get the direction to mov
         total_force = np.linalg.norm(v_total_force)
-    
-
+        
         total_force_angle = math.atan2(v_total_force[1], v_total_force[0])
-
+        
         # transform angle from quaternion to yaw
         leader_yaw = self.quaternion_to_yaw(self.leader_orientation)
         robot_yaw = self.quaternion_to_yaw(self.robot_orientation)
-
-
+        
         # angle difference between leader and robot
         leader_align_angle = math.atan2(math.sin(leader_yaw - robot_yaw), math.cos(leader_yaw - robot_yaw))
         

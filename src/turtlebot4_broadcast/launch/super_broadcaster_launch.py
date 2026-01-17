@@ -11,11 +11,6 @@ def generate_launch_description():
             default_value='qualisys',
             description='Source of positional data: real-world tracking system or simulation',
         ),
-        DeclareLaunchArgument(
-            'n_robots',
-            default_value="1",
-            description='Number of robots in simulation',
-        ),
         Node(
             package='turtlebot4_broadcast',
             executable='super_broadcaster_node',
@@ -25,7 +20,6 @@ def generate_launch_description():
             emulate_tty=True,  # Ensures output is similar to direct terminal execution
             parameters=[{
                 'env': LaunchConfiguration('env'),
-                'n_robots': LaunchConfiguration('n_robots')
             }],
             arguments=[],
         )

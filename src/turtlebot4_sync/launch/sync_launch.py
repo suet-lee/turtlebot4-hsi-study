@@ -10,16 +10,6 @@ def generate_launch_description():
             'namespace',
             default_value='',
         ),
-        DeclareLaunchArgument(
-            'center_x',
-            default_value='0',
-            description='Center of mill, x coord',
-        ),
-        DeclareLaunchArgument(
-            'center_y',
-            default_value='0',
-            description='Center of mill, y coord',
-        ),
         Node(
             package='turtlebot4_sync',
             executable='sync_node',
@@ -28,10 +18,7 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,  # Ensures output is similar to direct terminal execution
             # Pass parameters to the node
-            parameters=[{
-                'center_x': LaunchConfiguration('center_x'),
-                'center_y': LaunchConfiguration('center_y')
-            }],
+            # parameters=[{     }],
             arguments=[],
         )
     ])

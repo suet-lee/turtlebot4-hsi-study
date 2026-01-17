@@ -1,5 +1,21 @@
 teams:
   team0:
-    - turtlebot4_1
+    orbital_center: [0,1.8]
+    v: 0.3
+    radius: 1.0
+    namespace:
+      - turtlebot4_1
+      - turtlebot4_2
+      - turtlebot4_4
+      - turtlebot4_5
+      - turtlebot4_6
   team1:
-    - turtlebot4_2
+    orbital_center: [0,-1.8]
+    v: 0.6
+    radius: 0.6
+    namespace:
+      - turtlebot4_7
+      - turtlebot4_8
+      - turtlebot4_9
+      - turtlebot4_14
+      - turtlebot4_15

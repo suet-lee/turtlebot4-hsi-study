@@ -1,2 +1,4 @@
 www/robot_share_2d
 src/**/__pycache__
+config/ip_list.csv
+data/

@@ -21,9 +21,6 @@ class SuperBroadcaster(Node):
 
         self.declare_parameter('env', 'qualisys') 
         self.env = self.get_parameter('env').get_parameter_value().string_value
-
-        self.declare_parameter('n_robots', 3) 
-        self.n_robots = self.get_parameter('n_robots').value
         
         if self.env not in ['qualisys', 'vicon', 'sim']:
             raise Exception('Environment must be: [ qualisys | vicon | sim ]')
@@ -49,12 +46,16 @@ class SuperBroadcaster(Node):
         # elif self.env == 'vicon': #TODO add vicon
 
         elif self.env == 'sim':
-            for i in range(self.n_robots):
-                ns = f"turtlebot4_{i}"
-                label = f"turtlebot4_{i}"
-                namespace_data[ns] = label
+            spawn_path = os.path.join(get_package_share_directory(
+                'turtlebot4_broadcast'), 'config', 'sim_spawn.yaml')
+            
+            with open(spawn_path, 'r') as f:
+                robot_list = yaml.full_load(f)
+            
+            for ns in robot_list['namespaces']:
+                namespace_data[ns] = ns
                 pose_topic = f'/model/{ns}/turtlebot4/pose'
-                self.create_subscription(PoseArray, pose_topic, self.create_sim_callback(ns), 10)           
+                self.create_subscription(PoseArray, pose_topic, self.create_sim_callback(ns), 10)
         
         for namespace, label in namespace_data.items():
             info_topic = f'/{namespace}/tb_info_topic'
@@ -77,7 +78,7 @@ class SuperBroadcaster(Node):
             info_msg.orientation.y = rigid_body.pose.orientation.y
             info_msg.orientation.z = rigid_body.pose.orientation.z
             info_msg.orientation.w = rigid_body.pose.orientation.w
-
+            
             if 'leader' in namespace:
                 info_msg.role = "leader"
             else:
