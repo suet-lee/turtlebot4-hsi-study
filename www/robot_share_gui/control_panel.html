@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+    <link rel="stylesheet" href="/assets/control.css">
+    <script src="https://kit.fontawesome.com/cca944bf57.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    
+    <div id="container">
+
+        <div id="map-container">
+            <div id="map">
+                <canvas id="arena"></canvas>
+            </div>
+            <div id="task-info">
+                <!-- Needs to show zones and if active: and requirements
+                Need to show progress
+                Need to show where is the leader, where is the robot ? -->
+            </div>
+        </div>
+        
+        <div id="share-info">
+            <div class="interface">
+                <p>Interface 0</p>
+                <p>Request sent: <span id="req_s0">--</span></p>
+                <!-- <p>Request received: <span id="req_r0">--</span></p> -->
+                <p>Request accepted: <span id="acc0">--</span></p>
+            </div>
+            <div class="interface">
+                <p>Interface 1</p>
+                <p>Request sent: <span id="req_s1">--</span></p>
+                <!-- <p>Request received: <span id="req_r1">--</span></p> -->
+                <p>Request accepted: <span id="acc1">--</span></p>
+            </div>
+            <!-- Show who has sent a request
+            Show the robots in each team
+            Show if request is accepted 
+            Show which robots are being switched -->
+        </div>
+
+    </div>
+        
+    <div id="control-panel">
+      <div id="control-l">
+        <div>
+          <button value="4">Start flocking</button> <span>Starts robot flocking</span>
+        </div>
+        <div>
+          <button value="5">Stop flocking</button> <span>Stops robot flocking</span>
+        </div>
+        <div>
+          <button value="3">Reset robots</button>
+        </div>
+      </div>
+      <div id="control-r">
+        <div>
+          <button value="0">Reset trial</button> <span>Initialises and assigns tasks</span>
+        </div>
+        <div>
+          <button value="1">Run trial</button> <span>Allows task progression</span>
+        </div>
+        <div>
+          <button value="2">Pause trial</button> 
+        </div>
+      </div>
+    </div>
+    <!-- Trial control panel:
+    Show trial mode -->
+    <div id="control-state">
+      <p>Current robot state: <span id="r-state">--</span></p>
+      <p>Current trial state: <span id="t-state">--</span></p>
+    </div>
+
+    <div id="debug">
+      <p id="rosbridge">Interface connection: <span id="rosbridge-status">closed</span></p>
+    </div>
+
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <script type="text/javascript" src="/assets/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="/assets/control-panel.js"></script>
+
+  </body>
+</html>

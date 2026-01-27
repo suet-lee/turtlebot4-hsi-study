@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface 1</title>
+    <link rel="stylesheet" href="/assets/interface.css">
+  </head>
+  <body>
+    <input type="hidden" id="interface-id" value="1">
+
+    <div id="interface-box">
+      <div id="btn-send-rqt" class="fit-width btn rounded">
+        <p>Send request</p>
+      </div>
+      <div id="btn-cancel-rqt" class="fit-width btn rounded">
+        <p>Cancel request</p>
+      </div>
+
+      <div id="info-box" class="fit-width textbox rounded">
+        <p id="task-robots">0/0 robots in zone</p>
+        <p id="task-msg">Not in active task zone</p>
+        
+        <div id="task-progress">
+          <div class="bar">
+            <div class="complete"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="center-box">
+        <div id="message-box" class="fit-width textbox rounded">
+          <p>No new requests received</p>
+        </div>
+
+        <div id="points-box" class="fit-width textbox rounded">
+          <p id="points">0</p>
+        </div>
+      </div>
+
+      <div id="share-box" class="fit-width">
+        <div id="btn-transfer-now" class="btn disabled rounded">
+          <p>Transfer now <i class="fa-solid fa-retweet"></i></p>
+        </div>
+
+        <div id="btn-transfer-delay" class="btn disabled rounded">
+          <p>Transfer on task completion <i class="fa-regular fa-clock"></i></p>
+        </div>
+      </div>
+
+    </div>
+    
+    <div id="debug">
+      <p id="rosbridge">Interface 1 connection: <span id="rosbridge-status">closed</span></p>
+    </div>
+
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <script type="text/javascript" src="/assets/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="/assets/robot-share.js"></script>
+
+  </body>
+</html>

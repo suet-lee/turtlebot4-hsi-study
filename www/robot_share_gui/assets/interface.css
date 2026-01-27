@@ -1,0 +1,159 @@
+body {
+    margin: 0;
+}
+
+#interface-box { 
+    max-width: 500px; 
+    height: 100vh;
+    margin: auto; 
+    background-color: #f5f7f7; 
+    /* display: flex; flex-direction: column;  */
+    padding: 15px; 
+    padding-top: 56px;
+}
+
+div.fit-width { 
+    width: 100%; 
+    display: flex; 
+    margin: auto; 
+}
+
+div.textbox { 
+    margin: 20px auto; 
+    background-color: white; 
+}
+
+.btn { 
+    width: 45%; height: 100px; 
+    margin: 0px; 
+    background-color: #c5f0f0;
+    display: flex;
+    /* border: 1px solid #515454; */
+}
+
+.btn p {
+    font-size: 30px;
+}
+
+.btn.disabled {
+    background-color: #dee3e3;
+    color: darkgrey;
+}
+
+#share-box .btn {
+    height: 160px;
+}
+
+.rounded { border-radius: 10px; }
+
+p {
+    padding: 10px;
+    width: 100%;
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+    margin: auto;
+    font-size: 20px;
+}
+
+p.notification {
+    color: green;
+    font-size: 16px;
+}
+
+#btn-send-rqt {
+    margin-bottom: 10px;
+}
+
+#btn-cancel-rqt {
+    background-color: #f2c3bf;
+}
+
+#btn-send-rqt .fa-bell-concierge {
+    margin-left: 10px;
+}
+
+#info-box {
+    min-height: 200px;
+    flex-direction: column;
+    justify-content: space-between; 
+}
+
+#info-box p#task-msg {
+    margin: 20px auto 0;
+}
+
+#info-box p#task-robots {
+    margin: 10px auto;
+}
+
+#task-progress {
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+#task-progress .bar { 
+    margin: auto;
+    width: 90%; 
+    height: 30px;
+    border: 1px solid grey; 
+}
+
+#task-progress .complete { 
+    width: 1%; 
+    height: 100%;
+    background-color: green; 
+}
+
+#center-box {
+    display: flex;
+}
+
+#message-box {
+    margin-right: 5%;
+    min-height: 100px;
+    width: 60%;
+}
+
+#message-box p {
+    font-size: 16px;
+}
+
+#points-box {
+    min-height: 100px;
+    width: 35%;
+}
+
+#points { font-size: 40px; }
+
+#share-box { 
+    display: flex;
+    justify-content: space-between; 
+}
+
+#share-box p { width: 150px; }
+
+#debug { 
+    background-color: antiquewhite;
+    width: 100%; 
+    position: absolute; 
+    top: 0px; 
+    z-index: 3;
+    /* height: 30px;  */
+}
+
+#debug p {
+    font-size: 15px;
+}
+
+
+@media only screen and (max-width: 768px) {
+
+#interface-box {
+    max-width: 100%;
+}
+
+#share-box .btn p {
+    font-size: 20px;
+}
+
+}

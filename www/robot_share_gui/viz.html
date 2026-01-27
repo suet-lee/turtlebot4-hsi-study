@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Projection viz</title>
+    <style type="text/css">
+      body { margin: 0; }
+      
+      #viz-container { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: flex; background-color: black; }
+      #viz-sq { margin: auto; height: 100vh; background-color: white; width: 100vh; }
+      
+      #top-block, #bottom-block { height: 25%; width: 100%; display: flex; justify-content: space-between; }
+      #center { height: 50%; background-color: black; width: 100%; display: flex; justify-content: space-between; }
+
+      #b1, #b7 { width: 51%; height: 98%; }
+      /* #b7 { bottom: 0; }  */
+      #b3, #b5 { width: 24%; height: 100%; }
+      #b0, #b2, #b6, #b8 { width: 25%; height: 98%; }
+
+      .block { border: 5px solid lightcoral; background-color: white; } 
+      .block.active { background-color: #03fc77; }
+
+      p { font-size: 22px; }
+
+      #score p { color: whitesmoke; font-size: 160px; margin-top: 80px; }
+
+		</style>
+  </head>
+  <body>
+
+    <div id="viz-container">
+        <div id="viz-sq">
+            <div id="top-block">
+              <div id="b0" class="block">
+              </div>
+              <div id="b1" class="block"></div>
+              <div id="b2" class="block"></div>
+            </div>
+
+            <div id="center">
+              <div id="b3" class="block">
+                
+              </div>
+              <div id="score">
+                <p>0</p>
+              </div>
+              <div id="b5" class="block">
+                
+              </div>
+            </div>
+
+            <div id="bottom-block">
+              <div id="b6" class="block"></div>
+              <div id="b7" class="block"></div>
+              <div id="b8" class="block"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <script type="text/javascript" src="/assets/jquery-3.7.1.min.js"></script>    
+    <script type="text/javascript" src="/assets/viz.js"></script>
+
+  </body>
+</html>

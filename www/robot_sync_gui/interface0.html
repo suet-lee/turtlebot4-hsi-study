@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title}}</title>
+    <link rel="stylesheet" href="assets/interface.css">
+  </head>
+  <body>
+    <input type="hidden" id="interface-id" value="0">
+
+    <div id="debug">
+      <p id="rosbridge">Interface connection: <span id="rosbridge-status">closed</span></p>
+    </div>
+
+    <div id="container">
+        <div id="sliders">
+            <div class="slidecontainer">
+                <p>Radius: <span id="radius-value">--</span></p>
+                <input type="range" min="1" max="100" value="50" class="slider" id="radius">
+            </div>
+            <div class="slidecontainer">
+                <p>Velocity: <span id="velocity-value">--</span></p>
+                <input type="range" min="1" max="100" value="50" class="slider" id="velocity">
+            </div>
+        </div>
+
+        <div id="notification">
+          <p class="msg">Synchronisation achieved !</p>
+        </div>
+    </div>
+  
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+
+    <script type="text/javascript" src="assets/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="assets/robot-sync.js"></script>
+
+  </body>
+</html>
