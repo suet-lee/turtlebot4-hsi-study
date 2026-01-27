@@ -18,6 +18,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Turtlebot4Info.msg"
   "msg/TeamInfo.msg"
   "msg/TaskInfo.msg"
+  "msg/TrialInfo.msg"
+  "msg/ShareRequest.msg"
+  "msg/DistanceInfo.msg"
   DEPENDENCIES geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 

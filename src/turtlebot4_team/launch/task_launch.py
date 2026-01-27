@@ -15,6 +15,11 @@ def generate_launch_description():
             default_value='4',
             description='Maximum number of active zones',
         ),
+        DeclareLaunchArgument(
+            'seed',
+            default_value='10',
+            description='Random seed to initialise zones',
+        ),
         Node(
             package='turtlebot4_team',
             executable='task_node',
@@ -25,6 +30,7 @@ def generate_launch_description():
             # Pass parameters to the node, including the n_teams parameter
             parameters=[{
                 'max_active_zones': LaunchConfiguration('max_active_zones'),
+                'seed': LaunchConfiguration('seed'),
             }],
             arguments=[],
         )

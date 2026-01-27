@@ -10,6 +10,10 @@ def generate_launch_description():
             'namespace',
             default_value='',
         ),
+        DeclareLaunchArgument(
+            'task_id',
+            default_value='1',
+        ),
         Node(
             package='turtlebot4_team',
             executable='teaming_node',
@@ -18,8 +22,9 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,  # Ensures output is similar to direct terminal execution
             # Pass parameters to the node, including the n_teams parameter
-            # parameters=[{
-            # }],
+            parameters=[{
+                'task_id': LaunchConfiguration('task_id'),
+            }],
             arguments=[],
         )
     ])

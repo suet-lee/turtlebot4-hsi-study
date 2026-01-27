@@ -2,8 +2,8 @@ import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 
-from std_msgs.msg import Int8
-from turtlebot4_custom_msg.msg import Turtlebot4Info, TaskInfo
+from std_msgs.msg import Int8, Int16
+from turtlebot4_custom_msg.msg import Turtlebot4Info, TaskInfo, TrialInfo
 
 import random
 import yaml
@@ -25,6 +25,8 @@ class TaskManager(Node):
     ZONE_INACTIVE = 0
     ZONE_ACTIVE = 1
 
+    POINTS_SMALL = 100
+    POINTS_BIG = 150
 
     def __init__(self):
         """
@@ -37,19 +39,26 @@ class TaskManager(Node):
         self.zone_gridsize_n = self.get_parameter('zone_gridsize_n').value
 
         #TODO set in config file
-        self.declare_parameter('arena_w', 7)
+        self.declare_parameter('arena_w', 6.8)
         self.arena_w = self.get_parameter('arena_w').value
+        self.arena_h = self.arena_w # Assume square
 
         # Number of concurrently active zones
         self.declare_parameter('max_active_zones', 4)
         self.max_active_zones = self.get_parameter('max_active_zones').value
+
+        self.declare_parameter('seed', 10)
+        self.random_seed = self.get_parameter('seed').value
+
+        self.trial_state = 0 #TODO define as class variable
 
         self.zone_parameters = {}
         self.zone_status = {}
         self.task_requirement = {}
         self.task_progress = {}
         self.center_cell = None
-        self.task_points = 0
+        self.task_points = {}
+        self.task_points_pub = {}
 
         self.init_zones()
 
@@ -59,14 +68,25 @@ class TaskManager(Node):
         for k in self.zone_parameters.keys():
             self.zone_publisher[k] = self.create_publisher(TaskInfo, f'/zone{k}/task_info', 10)
 
-        self.assign_tasks()
+        self.control_sub = self.create_subscription(
+                TrialInfo,
+                '/trial_info',
+                self.create_trial_callback,
+                10
+            )
+
+        random.seed(self.random_seed) #  10 for active, 20 for autonomous
+        self.assign_tasks([self.center_cell])
 
         self.leader_positions = {}
         self.leader_in_zone = {}
         self.follower_positions = {}
         self.follower_team = {}
+        self.robots_available = {} # Count of robots in an active zone
+        self.zone_occupation = {}
 
         self.interface_publisher = {}
+        self.which_zone_publisher = {}
 
         # Get leader namespace
         share_teams_path = os.path.join(get_package_share_directory(
@@ -79,8 +99,8 @@ class TaskManager(Node):
         for team_, team_list in team_data['teams'].items():
             team_id = int(re.search(r'\d', team_).group())
             for robot in team_list:
-                robot_list[robot] = team_id #int(team_[-1])
-
+                robot_list[robot] = team_id
+        
         # Subscribe to info of robots
         for namespace, team_id in robot_list.items():
             follower_namespace = f'/{namespace}'
@@ -96,7 +116,15 @@ class TaskManager(Node):
                 f'{follower_namespace}/team', 
                 self.create_follower_team_callback(follower_namespace), 
                     10)
-
+            # Init follower team assignment
+            self.follower_team[follower_namespace] = team_id
+            # Publish zone that robot is currently in
+            self.which_zone_publisher[follower_namespace] = self.create_publisher(
+                Int8,
+                f'{follower_namespace}/zone', 
+                10
+            )
+        
         # Subscribes to all leader robot's information
         for team, leader_namespace in team_data['leaders'].items():
             team_id = int(re.search(r'\d', team).group())
@@ -108,6 +136,22 @@ class TaskManager(Node):
             
             # Publisher for task info to each leader/interface
             self.interface_publisher[team_id] = self.create_publisher(TaskInfo, f'/interface{team_id}/task_info', 10)
+            self.robots_available[team_id] = 0
+            
+            # Publish zone that leader is currently in
+            self.which_zone_publisher[f'l{team_id}'] = self.create_publisher(
+                Int8,
+                f'{leader_namespace}/zone',
+                10
+            )
+            
+            # init task points
+            self.task_points[team_id] = 0
+            self.task_points_pub[leader_namespace] = self.create_publisher(
+                Int16,
+                f'/task_points/team{team_id}',
+                10
+            )
 
 
     def init_zones(self):
@@ -117,21 +161,26 @@ class TaskManager(Node):
 
         # Divide the arena by gridsize, assume all cells are equal size and square
         # Parameterise zones in CW order starting from top left
-        no_cells = math.floor(self.arena_w/self.zone_gridsize_n)
+        no_cells = self.zone_gridsize_n #math.floor(self.arena_w/self.zone_gridsize_n)
         cell_w = self.arena_w/no_cells
-        center_cell = math.floor(no_cells/2)
-
+        self.center_cell = math.floor(no_cells*no_cells/2)
+        
         k = 0
-        for i in range(no_cells+1):
-            for j in range(no_cells+1):
-                if i == center_cell and j == center_cell: # skip center cell
-                    self.center_cell = k
+        for i in range(no_cells):
+            for j in range(no_cells):
+                if i == self.center_cell and j == self.center_cell: # skip center cell
                     continue
 
                 x0 = i*cell_w
                 x1 = (i+1)*cell_w
                 y0 = j*cell_w
                 y1 = (j+1)*cell_w
+
+                # Offset by center coord
+                x0 -= self.arena_w/2
+                x1 -= self.arena_w/2
+                y0 -= self.arena_h/2
+                y1 -= self.arena_h/2
                 
                 self.zone_parameters[k] = {'x0':x0,'x1':x1,'y0':y0,'y1':y1}
                 self.zone_status[k] = self.ZONE_INACTIVE
@@ -140,25 +189,34 @@ class TaskManager(Node):
 
                 k += 1
 
-
     def assign_tasks(self, skip_zones=[]):
         active_zones = 0
-        skip_zones = skip_zones
-        # Loop over zones, check if active, publish zone info
+        skip_zones.append(self.center_cell)
+
+        # Assume there are two requirement values
+        low_req = 4
+        high_req = 6
+        low_req_count = 0
+        high_req_count = 0
+
+        # Loop over zones, check if active
         for zone, status in self.zone_status.items():
             if status == self.ZONE_ACTIVE:
                 active_zones += 1
                 skip_zones.append(zone)
+                if self.task_requirement[zone] == low_req:
+                    low_req_count += 1
+                if self.task_requirement[zone] == high_req:
+                    high_req_count += 1
             
-            msg = TaskInfo()
-            msg.id = zone
-            msg.status = status
-            msg.robots_available = 99 # dummy value
-            msg.robots_required = self.task_requirement[zone]
-            msg.progress = self.task_progress[zone]
-            self.zone_publisher[zone].publish(msg)
+            # msg = TaskInfo()
+            # msg.id = zone
+            # msg.status = status
+            # msg.robots_available = 99 # dummy value
+            # msg.robots_required = self.task_requirement[zone]
+            # msg.progress = self.task_progress[zone]
+            # self.zone_publisher[zone].publish(msg)
 
-        max_requirement = 6
         while active_zones < self.max_active_zones:
             # Randomly assign new active zone
             zones = list(self.zone_status.keys())
@@ -167,24 +225,89 @@ class TaskManager(Node):
                 continue
 
             self.zone_status[new_active] = self.ZONE_ACTIVE
-            new_requirement = random.randrange(4, max_requirement+1) # can also create a list of possible requirements e.g. [3,3,3,7]
-            if new_requirement == max_requirement:
-                max_requirement = 5
+            if high_req_count < math.ceil(self.max_active_zones/2):
+                new_requirement = high_req
+                high_req_count += 1
+            else:
+                new_requirement = low_req
+                low_req_count += 1
+
             self.task_requirement[new_active] = new_requirement
             self.task_progress[new_active] = 1
 
             # Publish new zone info
-            msg = TaskInfo()
-            msg.id = new_active
-            msg.status = self.ZONE_ACTIVE
-            msg.robots_available = 99 # dummy value
-            msg.robots_required = self.task_requirement[new_active]
-            msg.progress = 1
-            self.zone_publisher[new_active].publish(msg)
+            # msg = TaskInfo()
+            # msg.id = new_active
+            # msg.status = self.ZONE_ACTIVE
+            # msg.robots_available = 99 # dummy value
+            # msg.robots_required = self.task_requirement[new_active]
+            # msg.progress = 1
+            # self.zone_publisher[new_active].publish(msg)
 
             active_zones += 1
             skip_zones.append(new_active)
+        
 
+    def create_trial_callback(self, msg):
+        
+        self.trial_state = msg.state
+        if self.trial_state == 0:
+            # idle
+            print("Trial idle")
+            return
+        
+        elif self.trial_state == 1:
+            # running
+            print("Trial running")
+            for zone, status in self.zone_status.items():            
+                new_msg = TaskInfo()
+                new_msg.id = zone
+                new_msg.status = status
+                new_msg.robots_available = 99 # dummy value - the real number is published to the interface topic
+                new_msg.robots_required = self.task_requirement[zone]
+                new_msg.progress = int(self.task_progress[zone])
+                self.zone_publisher[zone].publish(new_msg)
+
+            for leader_id in [0,1]:
+                new_msg = TaskInfo()
+                try:
+                    # leader_in_zone may not be initialised
+                    zone = self.leader_in_zone[leader_id]
+                    new_msg.id = zone
+                    new_msg.status = self.zone_status[zone]
+                    new_msg.robots_available = self.robots_available[zone]
+                    new_msg.robots_required = self.task_requirement[zone]
+                    new_msg.progress = int(self.task_progress[zone])
+                    
+                    msg = Int8()
+                    msg.data = zone
+                    self.which_zone_publisher[f'l{leader_id}'].publish(msg)
+                except Exception as e:
+                    new_msg.id = -1
+                    new_msg.status = self.ZONE_INACTIVE
+                    new_msg.robots_available = 0
+                    new_msg.robots_required = 0
+                    new_msg.progress = 1
+                finally:
+                    self.interface_publisher[leader_id].publish(new_msg)
+
+            for namespace, pub in self.task_points_pub.items():
+                leader_id = int(re.search(r'\d', namespace).group())
+                msg = Int16()
+                msg.data = self.task_points[leader_id]
+                pub.publish(msg)
+
+            for fnamespace, team_id in self.follower_team.items():
+                if fnamespace in self.zone_occupation:
+                    msg = Int8()
+                    msg.data = self.zone_occupation[fnamespace]
+                    self.which_zone_publisher[fnamespace].publish(msg)
+
+        elif self.trial_state == 2:
+            # pause
+            print("Trial paused")
+            return
+               
 
     def create_leader_info_callback(self, leader_id):
         """
@@ -231,27 +354,41 @@ class TaskManager(Node):
             A callback function that updates the internal state with the follower's team info.
         """
         def follower_team_callback(msg):
-            self.follower_team[namespace] = msg.id
+            self.follower_team[namespace] = msg.data
 
         return follower_team_callback
-
     
     # delta tolerance parameter
     def _check_in_zone(self, zone_id, x_pos, y_pos, delta=0):
-        params = self.zone_parameters[zone_id]
-        if x_pos < params['x0']-delta or x_pos > params['x1']+delta or y_pos < params['y0']-delta or y_pos > params['y1']+delta:
+        if zone_id == -1:
             return False
-        return True
+        
+        params = self.zone_parameters[zone_id]
+        if math.isnan(x_pos) or math.isnan(x_pos):
+            return False
+
+        try:
+            if x_pos < params['x0']-delta or x_pos > params['x1']+delta or y_pos < params['y0']-delta or y_pos > params['y1']+delta:
+                return False
+            else:
+                return True
+        except Exception as e:
+            return False
+        
 
     def _compute_leader_zone(self, leader_id):
         x_pos, y_pos = self.leader_positions[leader_id]
-
+        
         for zone_id, params in self.zone_parameters.items():
             # check if inside zone parameters
             if self._check_in_zone(zone_id, x_pos, y_pos):
                 self.leader_in_zone[leader_id] = zone_id
+                self.zone_occupation[f'l{leader_id}'] = zone_id
                 return zone_id
-            
+
+        self.leader_in_zone[leader_id] = -1    
+        return -1
+    
 
     # Check if a leader is in an active zone:
     # if occupied, check if task requirements are met
@@ -260,58 +397,62 @@ class TaskManager(Node):
     def check_leader_zone(self, leader_id):
         x_pos, y_pos = self.leader_positions[leader_id]
         
-        # First check init
         if leader_id not in self.leader_in_zone:
+            # Do first zone check (initialise)
             current_zone = self._compute_leader_zone(leader_id)
-        # Check if it's in the same zone as previous
         else:
+            # Check if it's in the same zone as previous
             zone_id = self.leader_in_zone[leader_id]
-            # Could technically simplify but trying to reduce computation (does it though?)
             if not self._check_in_zone(zone_id, x_pos, y_pos):
                 current_zone = self._compute_leader_zone(leader_id)
             else:
                 current_zone = zone_id
 
-        # Check if zone is active
-        if self.zone_status[current_zone] == self.ZONE_INACTIVE:
-            msg = TaskInfo()
-            msg.id = current_zone
-            msg.status = self.ZONE_INACTIVE
-            msg.robots_available = 0
-            msg.robots_required = 0
-            msg.progress = 1
-            self.interface_publisher.publish(msg)
+        if current_zone == -1: # Leader outside arena
+            print(f"Leader {leader_id} outside arena")
             return
         
+        # Check if zone is active
+        if self.zone_status[current_zone] == self.ZONE_INACTIVE:
+            return
+        
+        print(f"Leader {leader_id} in active zone")
+        
         # Zone is active, so check if task requirement is met
-        reqs = self.task_requirement[current_zone]
+        robot_req = self.task_requirement[current_zone]
         progress = self.task_progress[current_zone]
-
+        
         team_members = 0
         for fnamespace, team_id in self.follower_team.items():
             if team_id != leader_id:
                 continue
+            
+            try:
+                x_pos, y_pos = self.follower_positions[fnamespace]
+                if self._check_in_zone(current_zone, x_pos, y_pos, delta=0.3):
+                    team_members += 1
+            except Exception as e:
+                pass
 
-            x_pos, y_pos = self.follower_positions[fnamespace]
-            if self._check_in_zone(self, current_zone, x_pos, y_pos, delta=0.2):
-                team_members += 1
+        # print(f"Leader {leader_id} in zone {current_zone}, robot count = {team_members}")
 
-        if team_members >= reqs['robots']:
-            progress += 1
+        if team_members >= robot_req:
+            print("Progress ",progress)
+            progress += 0.25
+            self.task_progress[current_zone] = progress
 
-        msg = TaskInfo()
-        msg.id = current_zone
-        msg.status = self.ZONE_ACTIVE
-        msg.robots_available = team_members
-        msg.robots_required = reqs['robots']
-        msg.progress = progress
-        self.interface_publisher.publish(msg)
-
+        self.robots_available[current_zone] = team_members
         if progress >= 100:
+            # Success! Award points
+            if robot_req == 6:
+                self.task_points[leader_id] += self.POINTS_BIG
+            else:
+                self.task_points[leader_id] += self.POINTS_SMALL
+            # reset zone on completion
             self.zone_status[current_zone] = self.ZONE_INACTIVE
             self.task_requirement[current_zone] = 0
             self.task_progress[current_zone] = 1
-            self.assign_tasks(skip_zones=[current_zone])
+            self.assign_tasks(skip_zones=[current_zone]) # Make sure the same zone is not reactivated
 
         
 def main(args=None):

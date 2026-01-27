@@ -27,6 +27,7 @@ class SuperBroadcaster(Node):
 
         self.tb_namespaces = {}
         self.info_publishers = {}
+        self.last_msg= {}
         namespace_data = {}
         
         if self.env == 'qualisys':
@@ -61,10 +62,20 @@ class SuperBroadcaster(Node):
             info_topic = f'/{namespace}/tb_info_topic'
             self.tb_namespaces[label] = namespace
             self.info_publishers[label] = self.create_publisher(Turtlebot4Info, info_topic, 10)
+            
+            info_msg = Turtlebot4Info()
+            info_msg.x = 0
+            info_msg.y = 0
+            info_msg.orientation.x = 0
+            info_msg.orientation.y = 0
+            info_msg.orientation.z = 0
+            info_msg.orientation.w = 0
+            self.last_msg[label] = info_msg
         
 
     def qualisys_callback(self, rigid_bodies_msg): # callback real env
 
+        bodies = []    
         for rigid_body in rigid_bodies_msg.rigidbodies:
             # Get the namespace corresponding to the rigid body name
             rb_name = rigid_body.rigid_body_name
@@ -86,9 +97,18 @@ class SuperBroadcaster(Node):
 
             if rb_name in self.info_publishers:
                 self.info_publishers[rb_name].publish(info_msg)
+                self.last_msg[rb_name] = info_msg
+                bodies.append(rb_name)
             else:
                 print(f"Rigid body not in config: {rb_name}")
 
+        for rb_name, pub in self.info_publishers.items():
+            if rb_name in bodies:
+                continue
+
+            last_seen = self.last_msg[rb_name] #TODO improve this: log the last position recorded for robustness
+            pub.publish(last_seen)
+            
 
     def create_sim_callback(self, namespace):
 

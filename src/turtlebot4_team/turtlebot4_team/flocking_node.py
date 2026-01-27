@@ -4,7 +4,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from std_msgs.msg import Int8
 from geometry_msgs.msg import TwistStamped
-from turtlebot4_custom_msg.msg import Turtlebot4Info  # Import custom message
+from turtlebot4_custom_msg.msg import Turtlebot4Info, DistanceInfo  # Import custom message
 
 import numpy as np
 import math
@@ -84,15 +84,20 @@ class RobotFlocking(Node):
 
         # Publisher for robot control commands
         self.control_publisher = self.create_publisher(TwistStamped, f'{self.namespace}/cmd_vel', 10)
+
+        # Publisher for distance info
+        self.distance_publisher = self.create_publisher(DistanceInfo, f'{self.namespace}/distance_info', 10)
         
         # Initialize robot and leader positions and orientations
         self.robot_position = np.array([0, 0])
         self.robot_orientation = np.array([0, 0, 0, 0])
         self.leader_position = np.array([0, 0])
         self.leader_orientation = np.array([0, 0, 0, 0])
+        self.other_leader_position = np.array([0, 0])
+        self.d_pos = 0 # change in leader position
 
         # Movement constraints and interaction parameters
-        self.max_forward_velocity = 1.0
+        self.max_forward_velocity = 0.07
         self.max_rotation_velocity = 0.5
 
         self.leader_sigma = 1.3
@@ -105,6 +110,13 @@ class RobotFlocking(Node):
 
         self.flock_distance_threshold = 1.0
         self.min_force = 0.5
+
+        # Milling forces
+        self.circle_v = 0.01
+        self.k_radial = 2.
+        self.k_align = 0.1
+        self.k_tangent = 0. # switch between 0 and 1, depending on if robots are not spread out
+        self.radius = 0.5 #TODO rename to be clearer what radius this refers to
 
         self.state = 'GO'
 
@@ -176,13 +188,24 @@ class RobotFlocking(Node):
         """
         def leader_info_callback(msg):
             if leader_id != self.robot_team_id:
+                self.other_leader_position = np.array([msg.x, msg.y])
                 return
             
+            old_position = self.leader_position
             self.leader_position = np.array([msg.x, msg.y])
             self.leader_orientation = np.array([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+                            
+            self.d_pos = self.calculate_distance_and_angle(self.leader_position, old_position)
+
             self.calculate_forces()
 
         return leader_info_callback
+
+    def quaternion_to_xy(self, quaternion):
+        x, y, z, w = quaternion
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        return cosy_cosp, siny_cosp
 
     def quaternion_to_yaw(self, quaternion):
         """
@@ -215,7 +238,7 @@ class RobotFlocking(Node):
         y = distance * np.sin(angle_radians)
         return np.array([x, y])
     
-    def calculate_distance_and_angle(self, other_position):
+    def calculate_distance_and_angle(self, position1, position2):
         """
         Calculates the distance and angle to another position from the robot's current position.
 
@@ -226,8 +249,8 @@ class RobotFlocking(Node):
             A tuple (distance, angle) where distance is the Euclidean distance to the target
             and angle is the direction to the target in radians, relative to the robot's current orientation.
         """
-        dx = other_position[0] - self.robot_position[0]
-        dy = other_position[1] - self.robot_position[1]
+        dx = position1[0] - position2[0]#self.robot_position[0]
+        dy = position1[1] - position2[1]#self.robot_position[1]
         distance = math.sqrt(dx**2 + dy**2)
 
         follower_yaw = self.quaternion_to_yaw(self.robot_orientation)
@@ -262,6 +285,99 @@ class RobotFlocking(Node):
         """
         return vector / np.linalg.norm(vector)
 
+
+    def _form_circle(self, distance_to_leader, angle_to_leader):
+
+        twist = TwistStamped()
+
+        Fx, Fy = self.quaternion_to_xy(self.robot_orientation)
+        F = np.array([Fx, Fy]) # Current force vector wrt. to world frame
+
+        center = self.leader_position
+
+        # -----------------------------------
+        # Compute radial, tangent and align force based on current position and center of mill
+        # -----------------------------------
+        # Radial direction
+        to_center = center - self.robot_position
+        dist = np.linalg.norm(to_center) # this is the true radius
+        radial_dir = to_center / dist if dist > 1e-6 else np.zeros(2) # Vector pointing directly to the center
+        radial_force = self.k_radial * (dist - self.radius) * radial_dir
+
+        robots_in_team = max(1,list(self.follower_team.values()).count(self.robot_team_id))
+        self.R_avoid = 0.4
+        self.R_avoid_soft = 0.5#0.85*(2*self.radius*np.sin(np.pi/robots_in_team))
+        
+        # Tangential (rotate radial vector by 90°)
+        tangent = np.array([-radial_dir[1], radial_dir[0]]) # Tangent vector
+        tangent_force = self.k_tangent * tangent
+        align_force = self.k_align * (F / np.linalg.norm(F)) # Force aligning to current force vector
+        
+        # Combine forces
+        total_force = radial_force + tangent_force + align_force # New force vector wrt. world frame
+
+        # Position robots equidistant on orbit
+        # First find the robot in front
+        closest_d = 1000
+        closest_ns = None
+        # too_close = 0
+        
+        for namespace, pos in self.follower_positions.items():
+            distance_robot, angle_to_robot = self.calculate_distance_and_angle(pos,self.robot_position) #TODO check if this can be simplified
+            if distance_robot > 0 and angle_to_robot < np.pi/4 and angle_to_robot > -np.pi/4:
+                if distance_robot < closest_d:
+                    closest_d = distance_robot
+                    closest_ns = namespace
+        
+            # Also find the number of robots in proximity of R_avoid_soft
+            # if distance_robot < self.R_avoid_soft:
+            #     too_close += 1
+        
+        # if abs(dist - self.radius) < 0.1 and too_close <3:
+            # don't move, it's on the radius and no robots are too close
+            # return
+
+        # print("FORCES:", radial_force, tangent_force, align_force, avoid)
+
+        # Normalize to constant speed
+        norm = np.linalg.norm(total_force)
+
+        new_F = total_force / norm
+        # v_total_force = -v_total_force  # Invert the force vector to get the direction to mov
+        total_force_angle = math.atan2(new_F[1], new_F[0]) # Compute the rotation required wrt. world frame
+        d_angle = total_force_angle - self.quaternion_to_yaw(self.robot_orientation) # Rotation required wrt. current orientation
+        d_angle = d_angle%(2*math.pi)
+        if d_angle > math.pi:
+            d_angle -= 2*math.pi
+
+        if norm > self.min_force:
+            if abs(d_angle) < math.pi/4:
+                self.state = 'Move in circle'
+                twist.twist.linear.x = self.v
+                twist.twist.angular.z = d_angle
+            else:
+                self.state = 'Rotate in circle'
+                twist.twist.linear.x = 0.0
+                twist.twist.angular.z = d_angle
+        else:
+            self.state = 'Stop circle'
+            twist.twist.linear.x = 0.0
+            twist.twist.angular.z = 0.0
+        
+        print('Circle state: %s'%self.state)
+        # Check how close the robot in front is and apply speed/force restrictions
+        if closest_d < self.R_avoid:
+            print("Complete stop")
+            twist.twist.linear.x = 0.0
+            # if twist.twist.angular.z < 0:
+            twist.twist.angular.z = 0.
+        elif closest_d < self.R_avoid_soft:
+            print("Too close to %s: %f < %f  "%(closest_ns, closest_d, self.R_avoid_soft))
+            twist.twist.linear.x = twist.twist.linear.x*0.25
+            # twist.twist.angular.z = twist.twist.angular.z*0.2
+
+        self.control_publisher.publish(twist)
+
     def calculate_forces(self):
         """
         Adapts the flocking algorithm to follow the leader while avoiding collisions with followers.
@@ -271,8 +387,46 @@ class RobotFlocking(Node):
         """
         # Preparations for force calculation and twist message
         twist = TwistStamped()
-        distance_to_leader, angle_to_leader = self.calculate_distance_and_angle(self.leader_position)
+        distance_to_leader, angle_to_leader = self.calculate_distance_and_angle(self.leader_position, self.robot_position)
+        distance_to_other_leader, angle_to_other_leader = self.calculate_distance_and_angle(self.other_leader_position, self.robot_position)
         
+        # Distance info used to transfer robots between teams effectively
+        dist_msg = DistanceInfo()
+        distance0 = distance_to_leader
+        distance1 = distance_to_other_leader
+        
+        dist_msg.distance0 = distance0
+        dist_msg.distance1 = distance1
+        self.distance_publisher.publish(dist_msg)
+        
+        # Leader not moving - robots form a circle
+        if self.d_pos[0] < 0.1 and distance0 < 1.5: # and in active zone ?
+            # do circle behaviour
+            if distance0 < 0.5:
+                self.v = 0.02
+            else:
+                self.v = self.max_forward_velocity
+            print("circle time")
+            self._form_circle(distance_to_leader, angle_to_leader)
+            return
+
+        # elif distance0 < 2.0:
+        #     print("close - start slowing down")
+        #     self.flock_distance_threshold = 0.3
+        #     self.max_forward_velocity = 0.03
+        #     self.max_rotation_velocity = 0.5       
+        # elif self.d_pos[0] < 0.1 and distance0 < 0.7:
+        #     # leader is moving very little and robot is close
+        #     self.flock_distance_threshold = 0.3 #0.3
+        #     self.max_forward_velocity = 0.04
+        #     self.max_rotation_velocity = 0.1
+        else: 
+            print("normal flocking")
+            self.flock_distance_threshold = 1.0
+            self.max_forward_velocity = 0.07
+            self.max_rotation_velocity = 0.5
+
+
         # Initialize vectors and calculate force towards the leader
         v_to_leader = np.zeros(2)
         total_v_to_followers = np.zeros(2)
@@ -295,10 +449,10 @@ class RobotFlocking(Node):
         # Force calculation for each follower
         for namespace, pos in self.follower_positions.items():
             # Check if follower belongs to the same team #TODO maybe this check not needed
-            # if team_id != self.robot_team_id:
-            #     continue
+            if namespace in self.follower_team and self.robot_team_id != self.follower_team[namespace] or self.d_pos[0] < 0.1 and distance0 < 0.5:
+                continue
 
-            distance_follower, angle_to_follower = self.calculate_distance_and_angle(pos)
+            distance_follower, angle_to_follower = self.calculate_distance_and_angle(pos, self.robot_position)
             if distance_follower > 0:  # Avoid division by zero
                 # Use Lennard-Jones potential for attraction and repulsion
                 v_to_follower = self.calculate_vector(distance_follower, angle_to_follower)
@@ -306,17 +460,16 @@ class RobotFlocking(Node):
                 ljf_follower = self.lennard_jones_potential(distance_follower, epsilon=self.follower_epsilon, sigma=self.follower_sigma, exponent=self.follower_exponent)
                 v_to_follower = self.get_unit_vector(v_to_follower) * ljf_follower
                 total_v_to_followers += v_to_follower
-        
-        # for pos in self.follower_positions.values():
-        #     distance_follower, angle_to_follower = self.calculate_distance_and_angle(pos)
-        #     if distance_follower > 0:  # Avoid division by zero
-        #         # Use Lennard-Jones potential for attraction and repulsion
-        #         v_to_follower = self.calculate_vector(distance_follower, angle_to_follower)
-        #         v_to_follower *= -1
-        #         ljf_follower = self.lennard_jones_potential(distance_follower, epsilon=self.follower_epsilon, sigma=self.follower_sigma, exponent=self.follower_exponent)
-        #         v_to_follower = self.get_unit_vector(v_to_follower) * ljf_follower
-        #         total_v_to_followers += v_to_follower
 
+        # Include other leader in force calculation
+        if distance_to_other_leader > 0:
+            # Use Lennard-Jones potential for attraction and repulsion
+            v_to_other_leader = self.calculate_vector(distance_to_other_leader, angle_to_other_leader)
+            v_to_other_leader *= -1
+            ljf_other_leader = self.lennard_jones_potential(distance_to_other_leader, epsilon=self.leader_epsilon, sigma=self.leader_sigma, exponent=self.leader_exponent)
+            v_to_other_leader = self.get_unit_vector(v_to_other_leader) * ljf_other_leader
+            total_v_to_followers += v_to_other_leader
+        
         # Total force calculation and twist message population
         v_total_force = v_to_leader + total_v_to_followers
         # v_total_force = -v_total_force  # Invert the force vector to get the direction to mov
@@ -338,17 +491,17 @@ class RobotFlocking(Node):
                 # Rotate to move towards the vector pointing backwards
                 self.state = 'Flock rotate'
                 twist.twist.linear.x = 0.0
-                twist.twist.angular.z = total_force_angle
+                twist.twist.angular.z = total_force_angle*self.max_rotation_velocity
             else:
                 self.state = 'Flock Move'
-                twist.twist.linear.x = total_force
-                twist.twist.angular.z = total_force_angle
+                twist.twist.linear.x = total_force*self.max_forward_velocity
+                twist.twist.angular.z = total_force_angle*self.max_rotation_velocity
 
         elif abs(leader_align_angle) > 0.1:
             self.state = 'Align'
             # align with leader
             twist.twist.linear.x = 0.0
-            twist.twist.angular.z = leader_align_angle
+            twist.twist.angular.z = leader_align_angle*self.max_rotation_velocity
         else:
             # stop
             self.state = 'Stop'
@@ -357,43 +510,6 @@ class RobotFlocking(Node):
 
         if old_state != self.state:
             print(self.state, 'total_force:', total_force, 'angle:', total_force_angle)
-
-
-
-        # Catch up if total force
-
-
-        # if abs(total_force[0]) > self.min_force:
-        #     if total_force[0] < 0:
-        #         # Rotate to move towards the vector pointing backwards
-        #         print('STATE: ROTATE', 'pos:', self.robot_position, 'angle:', angle)
-        #         twist.twist.linear.x = 0.0
-        #         if abs(angle) > 0.15:
-        #             twist.twist.angular.z = angle
-        #         else:
-        #             twist.twist.angular.z = 0.0
-        #     else:
-        #         # Flock with leader that is moving
-
-        #         print('STATE: FLOCK (MOVING_FORWARD)', 'pos:', self.robot_position)
-        #         twist.twist.linear.x = min(np.linalg.norm(total_force), self.max_forward_velocity)
-        #         twist.twist.angular.z = angle
-        # # elif total_force[0] < -self.min_force:
-        # #     print('STATE: FLOCK (MOVING_BACK)')
-        # #     twist.twist.linear.x = max(-np.linalg.norm(total_force), -self.max_forward_velocity)
-        # #     twist.twist.angular.z = -angle
-        # elif abs(math.atan2(math.sin(leader_yaw - robot_yaw), math.cos(leader_yaw - robot_yaw))) > 0.15:
-        #     # Align with leader that is not moving
-        #     print('STATE: FLOCK (ALIGNING)', 'angle:', angle, math.atan2(math.sin(leader_yaw - robot_yaw), math.cos(leader_yaw - robot_yaw)))
-        #     twist.twist.linear.x = 0.0
-        #     twist.twist.angular.z = math.atan2(math.sin(leader_yaw - robot_yaw), math.cos(leader_yaw - robot_yaw))
-        # else:
-        #     print('STATE: STOP', 'pos:', self.robot_position)
-        #     twist.twist.linear.x = 0.0
-        #     twist.twist.angular.z = 0.0
-
-
-
 
         # Publishing the twist message for movement control
         self.control_publisher.publish(twist)
